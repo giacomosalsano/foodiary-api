@@ -1,0 +1,119 @@
+org: giacomodev
+service: foodiary-api
+
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  architecture: arm64
+  environment:
+    DATABASE_URL: ${env:DATABASE_URL}
+    JWT_SECRET: ${env:JWT_SECRET}
+    UPLOADS_BUCKET_NAME: !Ref UploadsBucket
+    MEALS_QUEUE_URL: !Ref MealsQueue
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+          Resource: !Sub '${UploadsBucket.Arn}/*'
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+          Resource: !GetAtt MealsQueue.Arn
+
+package: 
+  individually: true
+
+resources:
+  Resources:
+    UploadsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: foodiary-uploads-jstack-lab-giacomo
+    MealsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: foodiary-meals-queue-jstack-lab-giacomo
+        VisibilityTimeout: 60
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt MealsDLQ.Arn
+          maxReceiveCount: 2
+    MealsDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: foodiary-meals-dlq-jstack-lab-giacomo
+
+build:
+  esbuild:
+    minify: true
+    sourcemap: false
+
+functions:
+  signin:
+    handler: src/functions/signIn.handler
+    timeout: 25
+    events:
+      - httpApi:
+          method: POST
+          path: /signin
+
+  signup:
+    handler: src/functions/signUp.handler
+    timeout: 25
+    events:
+      - httpApi:
+          method: POST
+          path: /signup
+
+  me:
+    handler: src/functions/me.handler
+    timeout: 25
+    events:
+      - httpApi:
+          method: GET
+          path: /me
+
+  createMeal:
+    handler: src/functions/createMeal.handler
+    timeout: 25
+    events:
+      - httpApi:
+          method: POST
+          path: /meals
+
+  listMeals:
+    handler: src/functions/listMeals.handler
+    timeout: 25
+    events:
+      - httpApi:
+          method: GET
+          path: /meals
+
+  getMeal:
+    handler: src/functions/getMealById.handler
+    timeout: 25
+    events:
+      - httpApi:
+          method: GET
+          path: /meals/{mealId}
+
+  fileUploadedEvent:
+    handler: src/functions/fileUploadedEvent.handler
+    events:
+      - s3:
+          bucket: !Ref UploadsBucket
+          event: s3:ObjectCreated:*
+          existing: true
+          forceDeploy: true
+
+  processMeal:
+    handler: src/functions/processMeal.handler
+    events:
+      - sqs:
+          arn: !GetAtt MealsQueue.Arn
+          batchSize: 1
+
