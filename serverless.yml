@@ -13,6 +13,7 @@ provider:
     JWT_SECRET: ${env:JWT_SECRET}
     UPLOADS_BUCKET_NAME: !Ref UploadsBucket
     MEALS_QUEUE_URL: !Ref MealsQueue
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
   iam:
     role:
       statements:
