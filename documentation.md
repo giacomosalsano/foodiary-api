@@ -1,37 +1,38 @@
-# Foodiary API - Documentação Completa
+# Foodiary API - Complete Documentation
 
-## 📋 Visão Geral
+## 📋 Overview
 
-O **Foodiary API** é uma aplicação serverless construída com AWS Lambda que permite aos usuários registrar e gerenciar suas refeições através de upload de fotos ou áudios. A aplicação utiliza processamento assíncrono para analisar os alimentos e calcular informações nutricionais.
+**Foodiary API** is a serverless application built with AWS Lambda that allows users to log and manage their meals by uploading photos or audio. The application uses **real Artificial Intelligence** (OpenAI) for asynchronous food processing and automatic nutritional information calculation.
 
-**URL da API:** `https://hcnruwnjwa.execute-api.us-east-1.amazonaws.com/`
+**API URL:** `https://hcnruwnjwa.execute-api.us-east-1.amazonaws.com/`
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🏗️ System Architecture
 
-### Stack Tecnológica
+### Tech Stack
 - **Runtime:** Node.js 22.x (ARM64)
 - **Framework:** Serverless Framework
-- **Banco de Dados:** PostgreSQL (Neon) + Drizzle ORM
-- **Autenticação:** JWT
+- **Database:** PostgreSQL (Neon) + Drizzle ORM
+- **Authentication:** JWT
 - **Storage:** AWS S3
-- **Filas:** AWS SQS
-- **Validação:** Zod
-- **Criptografia:** bcryptjs
+- **Queues:** AWS SQS
+- **Validation:** Zod
+- **Encryption:** bcryptjs
+- **AI:** OpenAI (GPT-4 Vision + Whisper)
 
-### Fluxo de Dados
+### Data Flow
 ```
-1. Usuário faz upload → 2. S3 Event → 3. SQS → 4. Processamento IA → 5. Atualização DB
+1. User uploads → 2. S3 Event → 3. SQS → 4. AI Processing → 5. DB Update
 ```
 
 ---
 
-## 📊 Banco de Dados
+## 📊 Database
 
 ### Schema (`src/db/schema.ts`)
 
-#### Tabela `users`
+#### `users` Table
 ```typescript
 {
   id: uuid (PK),
@@ -44,7 +45,7 @@ O **Foodiary API** é uma aplicação serverless construída com AWS Lambda que 
   height: integer,
   weight: integer,
   activityLevel: integer(1-5),
-  // Metas nutricionais calculadas:
+  // Calculated nutritional goals:
   calories: integer,
   proteins: integer,
   carbohydrates: integer,
@@ -54,82 +55,133 @@ O **Foodiary API** é uma aplicação serverless construída com AWS Lambda que 
 }
 ```
 
-#### Tabela `meals`
+#### `meals` Table
 ```typescript
 {
   id: uuid (PK),
   userId: uuid (FK),
-  name: varchar(255),
-  icon: varchar(255),
+  name: varchar(255), // Meal name (e.g., "Dinner", "Breakfast")
+  icon: varchar(255), // Meal emoji (e.g., "🍗", "🥗")
   status: enum('uploading', 'processing', 'success', 'failed'),
   inputType: enum('audio', 'picture'),
   inputFileKey: varchar(255),
-  foods: json, // Array de alimentos processados
+  foods: json, // Array of foods processed by AI
   createdAt: timestamp,
   updatedAt: timestamp
 }
 ```
 
-**Análise:**
-- ✅ **Boa estrutura:** Separação clara entre usuários e refeições
-- ✅ **Flexibilidade:** Campo `foods` como JSON permite diferentes estruturas
-- ✅ **Rastreabilidade:** Status tracking para processamento assíncrono
-- ⚠️ **Melhoria:** Adicionar índices para `userId` e `status` para performance
-- ⚠️ **Melhoria:** Considerar normalizar `foods` em tabela separada para consultas complexas
+**Analysis:**
+- ✅ **Improved structure:** `name` and `icon` fields added for better UX
+- ✅ **Flexibility:** `foods` as JSON allows different structures
+- ✅ **Traceability:** Status tracking for async processing
+- ✅ **Typed enums:** Status and inputType with validation
+- ⚠️ **Improvement:** Add indexes for `userId` and `status` for performance
+- ⚠️ **Improvement:** Consider normalizing `foods` into a separate table for complex queries
 
 ---
 
-## 🔐 Autenticação e Segurança
+## 🤖 Artificial Intelligence
+
+### AI Service (`src/services/ai.ts`)
+
+#### Audio Transcription
+```typescript
+// Uses OpenAI Whisper for transcription in Portuguese
+transcribeAudio(fileBuffer: Buffer) → string
+```
+
+#### Text Analysis
+```typescript
+// Processes transcribed text to extract nutritional information
+getMealDetailsFromText({ text, createdAt }) → {
+  name: string,    // "Dinner", "Breakfast"
+  icon: string,    // "🍗", "🥗"
+  foods: Array<{
+    name: string,      // "White rice"
+    quantity: string,  // "150g"
+    calories: number,  // 193
+    carbohydrates: number, // 42
+    proteins: number,      // 3.5
+    fats: number          // 0.4
+  }>
+}
+```
+
+#### Image Analysis
+```typescript
+// Uses GPT-4 Vision for meal photo analysis
+getMealDetailsFromImage({ imageURL, createdAt }) → {
+  name: string,
+  icon: string,
+  foods: Array<FoodItem>
+}
+```
+
+**Analysis:**
+- ✅ **Real AI:** Full implementation with OpenAI
+- ✅ **Multimodal:** Supports audio and image
+- ✅ **Contextual:** Considers meal time
+- ✅ **Structured:** Standardized JSON response
+- ✅ **Portuguese:** Processing in Brazilian Portuguese
+- ⚠️ **Improvement:** Implement cache for similar results
+- ⚠️ **Improvement:** Add fallback for AI errors
+
+---
+
+## 🔐 Authentication & Security
 
 ### JWT (`src/lib/jwt.ts`)
 ```typescript
-// Gera token de acesso válido por 7 dias
+// Generates access token valid for 7 days
 signAccessTokenFor(userId: string) → string
 
-// Verifica e extrai userId do token
+// Verifies and extracts userId from token
 verifyAccessToken(token: string) → string | null
 ```
 
-**Análise:**
-- ✅ **Simplicidade:** Implementação direta e funcional
-- ✅ **Segurança:** Tokens com expiração
-- ⚠️ **Melhoria:** Implementar refresh tokens
-- ⚠️ **Melhoria:** Adicionar blacklist para logout
-- ⚠️ **Melhoria:** Usar variáveis de ambiente para configurações
+**Analysis:**
+- ✅ **Simplicity:** Direct and functional implementation
+- ✅ **Security:** Tokens expire in 7 days
+- ✅ **Type safety:** Well-typed with TypeScript
+- ⚠️ **Improvement:** Implement refresh tokens
+- ⚠️ **Improvement:** Add blacklist for logout
+- ⚠️ **Improvement:** Use environment variables for config
 
-### Criptografia (`bcryptjs`)
-- Senhas hasheadas com salt rounds = 8
-- Comparação segura com `compare()`
+### Encryption (`bcryptjs`)
+- Passwords hashed with salt rounds = 8
+- Secure comparison with `compare()`
 
 ---
 
-## 🧮 Cálculo de Metas Nutricionais
+## 🧮 Nutritional Goals Calculation
 
 ### `src/lib/calculateGoals.ts`
 
-**Fórmula utilizada:**
+**Formula used:**
 1. **BMR (Basal Metabolic Rate):**
-   - Homens: `88.36 + 13.4 × peso + 4.8 × altura - 5.7 × idade`
-   - Mulheres: `447.6 + 9.2 × peso + 3.1 × altura - 4.3 × idade`
+   - Men: `88.36 + 13.4 × weight + 4.8 × height - 5.7 × age`
+   - Women: `447.6 + 9.2 × weight + 3.1 × height - 4.3 × age`
 
 2. **TDEE (Total Daily Energy Expenditure):**
-   - `BMR × Multiplicador de Atividade`
+   - `BMR × Activity Multiplier`
 
-3. **Metas baseadas no objetivo:**
-   - Manter: TDEE
-   - Ganhar: TDEE + 500 cal
-   - Perder: TDEE - 500 cal
+3. **Goals based on objective:**
+   - Maintain: TDEE
+   - Gain: TDEE + 500 cal
+   - Lose: TDEE - 500 cal
 
-4. **Distribuição de Macronutrientes:**
-   - Proteínas: `peso × 2g`
-   - Gorduras: `peso × 0.9g`
-   - Carboidratos: `(calorias - proteínas×4 - gorduras×9) ÷ 4`
+4. **Macronutrient Distribution:**
+   - Proteins: `weight × 2g`
+   - Fats: `weight × 0.9g`
+   - Carbs: `(calories - proteins×4 - fats×9) ÷ 4`
 
-**Análise:**
-- ✅ **Cientificamente válida:** Fórmulas baseadas em estudos
-- ✅ **Flexível:** Suporta diferentes objetivos e níveis de atividade
-- ⚠️ **Melhoria:** Adicionar validação de entrada
-- ⚠️ **Melhoria:** Considerar fatores individuais (composição corporal, etc.)
+**Analysis:**
+- ✅ **Scientifically valid:** Formulas based on studies
+- ✅ **Flexible:** Supports different goals and activity levels
+- ✅ **Type safety:** Well-typed with TypeScript
+- ⚠️ **Improvement:** Add input validation
+- ⚠️ **Improvement:** Consider individual factors (body composition, etc.)
 
 ---
 
@@ -137,142 +189,150 @@ verifyAccessToken(token: string) → string | null
 
 ### 1. SignUpController (`src/controllers/signUpController.ts`)
 
-**Funcionalidade:** Cadastro de usuário com cálculo automático de metas
+**Functionality:** User registration with automatic goal calculation
 
-**Fluxo:**
-1. Valida dados com Zod
-2. Verifica se email já existe
-3. Calcula metas nutricionais
-4. Hash da senha
-5. Insere usuário no banco
-6. Gera JWT
-7. Retorna dados do usuário + token
+**Flow:**
+1. Validates data with Zod (goal, gender, birthDate, height, weight, activityLevel, account)
+2. Checks if email already exists
+3. Automatically calculates nutritional goals
+4. Hashes password with bcrypt
+5. Inserts user into database
+6. Generates JWT
+7. Returns user data + token
 
-**Análise:**
-- ✅ **Validação robusta:** Zod schema completo
-- ✅ **Segurança:** Senha hasheada
-- ✅ **UX:** Retorna token automaticamente
-- ⚠️ **Melhoria:** Adicionar validação de força da senha
-- ⚠️ **Melhoria:** Implementar verificação de email
+**Analysis:**
+- ✅ **Robust validation:** Complete Zod schema
+- ✅ **Security:** Password hashed
+- ✅ **UX:** Returns token automatically
+- ✅ **Automatic calculation:** Nutritional goals calculated on signup
+- ⚠️ **Improvement:** Add password strength validation
+- ⚠️ **Improvement:** Implement email verification
 
 ### 2. SignInController (`src/controllers/signInController.ts`)
 
-**Funcionalidade:** Autenticação de usuário
+**Functionality:** User authentication
 
-**Fluxo:**
-1. Valida email/senha
-2. Busca usuário no banco
-3. Compara senha com bcrypt
-4. Gera JWT
-5. Retorna dados + token
+**Flow:**
+1. Validates email/password with Zod
+2. Finds user in database
+3. Compares password with bcrypt
+4. Generates JWT
+5. Returns user data + token
 
-**Análise:**
-- ✅ **Segurança:** Mensagem genérica para credenciais inválidas
-- ✅ **Performance:** Busca otimizada apenas campos necessários
-- ⚠️ **Melhoria:** Implementar rate limiting
-- ⚠️ **Melhoria:** Adicionar logs de tentativas de login
+**Analysis:**
+- ✅ **Security:** Generic message for invalid credentials
+- ✅ **Performance:** Query only necessary fields
+- ✅ **Validation:** Zod for input
+- ⚠️ **Improvement:** Implement rate limiting
+- ⚠️ **Improvement:** Add login attempt logs
 
 ### 3. MeController (`src/controllers/meController.ts`)
 
-**Funcionalidade:** Retorna dados do usuário logado
+**Functionality:** Returns logged-in user data
 
-**Fluxo:**
-1. Usa userId do JWT (já validado)
-2. Busca dados do usuário
-3. Retorna informações nutricionais
+**Flow:**
+1. Uses userId from JWT (already validated)
+2. Fetches user data
+3. Returns nutritional information
 
-**Análise:**
-- ✅ **Simplicidade:** Endpoint direto
-- ✅ **Segurança:** Usa ProtectedHttpRequest
-- ⚠️ **Melhoria:** Adicionar cache para dados estáticos
+**Analysis:**
+- ✅ **Simplicity:** Direct endpoint
+- ✅ **Security:** Uses ProtectedHttpRequest
+- ✅ **Nutritional data:** Returns calculated goals
+- ⚠️ **Improvement:** Add cache for static data
 
 ### 4. CreateMealController (`src/controllers/createMealController.ts`)
 
-**Funcionalidade:** Inicia processo de criação de refeição
+**Functionality:** Starts meal creation process
 
-**Fluxo:**
-1. Valida tipo de arquivo (áudio/foto)
-2. Gera UUID para arquivo
-3. Cria presigned URL do S3 (10 min)
-4. Insere refeição com status 'uploading'
-5. Retorna mealId + uploadUrl
+**Flow:**
+1. Validates file type (audio/photo) with Zod
+2. Generates UUID for file
+3. Creates S3 presigned URL (10 min)
+4. Inserts meal with status 'uploading'
+5. Returns mealId + uploadUrl
 
-**Análise:**
-- ✅ **Segurança:** Presigned URLs com expiração
-- ✅ **Flexibilidade:** Suporta áudio e imagem
-- ⚠️ **Melhoria:** Validar tamanho máximo de arquivo
-- ⚠️ **Melhoria:** Implementar limpeza de refeições órfãs
+**Analysis:**
+- ✅ **Security:** Presigned URLs with expiration
+- ✅ **Flexibility:** Supports audio and image
+- ✅ **Validation:** Zod for file types
+- ⚠️ **Improvement:** Validate max file size
+- ⚠️ **Improvement:** Implement orphan meal cleanup
 
 ### 5. ListMealsController (`src/controllers/listMealsController.ts`)
 
-**Funcionalidade:** Lista refeições por data
+**Functionality:** Lists meals by date
 
-**Fluxo:**
-1. Valida parâmetro de data
-2. Busca refeições do usuário na data
-3. Filtra apenas refeições com status 'success'
+**Flow:**
+1. Validates date parameter with Zod
+2. Fetches user's meals for the date
+3. Filters only meals with status 'success'
 
-**Análise:**
-- ✅ **Performance:** Query otimizada com índices
-- ✅ **Segurança:** Filtra por userId
-- ⚠️ **Melhoria:** Adicionar paginação
-- ⚠️ **Melhoria:** Implementar cache
+**Analysis:**
+- ✅ **Performance:** Query optimized with indexes
+- ✅ **Security:** Filters by userId
+- ✅ **Validation:** Zod for date
+- ✅ **Temporal filter:** Search by specific date
+- ⚠️ **Improvement:** Add pagination
+- ⚠️ **Improvement:** Implement cache
 
 ### 6. GetMealByIdController (`src/controllers/getMealByIdContoller.ts`)
 
-**Funcionalidade:** Busca refeição específica
+**Functionality:** Fetches a specific meal
 
-**Fluxo:**
-1. Valida mealId (UUID)
-2. Busca refeição do usuário
-3. Retorna dados completos
+**Flow:**
+1. Validates mealId (UUID) with Zod
+2. Fetches user's meal
+3. Returns complete data
 
-**Análise:**
-- ✅ **Segurança:** Validação de UUID
-- ✅ **Isolamento:** Usuário só vê suas refeições
-- ⚠️ **Melhoria:** Adicionar cache para refeições acessadas frequentemente
+**Analysis:**
+- ✅ **Security:** UUID validation
+- ✅ **Isolation:** User only sees their meals
+- ✅ **Validation:** Zod for UUID
+- ⚠️ **Improvement:** Add cache for frequently accessed meals
 
 ---
 
-## 🔄 Funções Lambda
+## 🔄 Lambda Functions
 
-### Estrutura Padrão
-Todas as funções seguem o padrão:
+### Standard Structure
+All functions follow the pattern:
 ```typescript
-1. Parse event (comum/protegido)
-2. Chama controller
+1. Parse event (common/protected)
+2. Call controller
 3. Parse response
-4. Trata erros de autenticação
+4. Handle authentication errors
 ```
 
-### Funções Públicas
+### Public Functions
 - `signIn`: Login
-- `signUp`: Cadastro
+- `signUp`: Registration
 
-### Funções Protegidas
-- `me`: Dados do usuário
-- `createMeal`: Criar refeição
-- `listMeals`: Listar refeições
-- `getMealById`: Buscar refeição
+### Protected Functions
+- `me`: User data
+- `createMeal`: Create meal
+- `listMeals`: List meals
+- `getMealById`: Fetch meal
 
-### Funções de Sistema
+### System Functions
 - `fileUploadedEvent`: Trigger S3 → SQS
-- `processMeal`: Processa mensagens SQS
+- `processMeal`: Processes SQS messages
 
-**Análise:**
-- ✅ **Consistência:** Padrão uniforme em todas as funções
-- ✅ **Separação:** Lógica de negócio nos controllers
-- ✅ **Tratamento de erro:** Try/catch para autenticação
-- ⚠️ **Melhoria:** Implementar logging estruturado
-- ⚠️ **Melhoria:** Adicionar métricas de performance
+**Analysis:**
+- ✅ **Consistency:** Uniform pattern in all functions
+- ✅ **Separation:** Business logic in controllers
+- ✅ **Error handling:** Try/catch for authentication
+- ✅ **Timeout:** 25 seconds for all functions
+- ⚠️ **Improvement:** Implement structured logging
+- ⚠️ **Improvement:** Add performance metrics
 
 ---
 
-## 📁 Utilitários
+## 📁 Utilities
 
 ### Parse Event (`src/utils/parseEvent.ts`)
 ```typescript
-// Converte APIGatewayProxyEventV2 em HttpRequest
+// Converts APIGatewayProxyEventV2 to HttpRequest
 {
   body: JSON.parse(event.body),
   params: event.pathParameters,
@@ -282,9 +342,9 @@ Todas as funções seguem o padrão:
 
 ### Parse Protected Event (`src/utils/parseProtectedEvent.ts`)
 ```typescript
-// Adiciona validação de JWT ao parseEvent
-// Extrai userId do token
-// Lança erro se token inválido
+// Adds JWT validation to parseEvent
+// Extracts userId from token
+// Throws error if token is invalid
 ```
 
 ### HTTP Responses (`src/utils/http.ts`)
@@ -293,63 +353,70 @@ ok(200), created(201), badRequest(400),
 conflict(409), unauthorized(401)
 ```
 
-**Análise:**
-- ✅ **Reutilização:** Utilitários centralizados
-- ✅ **Tipagem:** TypeScript bem estruturado
-- ⚠️ **Melhoria:** Adicionar mais códigos de status (404, 500, etc.)
+**Analysis:**
+- ✅ **Reusability:** Centralized utilities
+- ✅ **Type safety:** Well-typed with TypeScript
+- ✅ **Consistency:** Uniform response pattern
+- ⚠️ **Improvement:** Add more status codes (404, 500, etc.)
 
 ---
 
-## 🗂️ Clientes AWS
+## 🗂️ AWS Clients
 
 ### S3 Client (`src/clients/s3Clients.ts`)
 ```typescript
-// Cliente padrão do AWS SDK v3
-// Usa credenciais do ambiente
+// Standard AWS SDK v3 client
+// Uses environment credentials
 ```
 
 ### SQS Client (`src/clients/sqsClient.ts`)
 ```typescript
-// Cliente padrão do AWS SDK v3
-// Para envio de mensagens de processamento
+// Standard AWS SDK v3 client
+// For processing message sending
 ```
 
-**Análise:**
-- ✅ **Simplicidade:** Configuração padrão adequada
-- ⚠️ **Melhoria:** Adicionar retry policies
-- ⚠️ **Melhoria:** Configurar timeouts específicos
+**Analysis:**
+- ✅ **Simplicity:** Proper default configuration
+- ✅ **Consistency:** AWS SDK v3 throughout the project
+- ⚠️ **Improvement:** Add retry policies
+- ⚠️ **Improvement:** Set specific timeouts
 
 ---
 
-## 🔄 Processamento Assíncrono
+## 🔄 Asynchronous Processing
 
-### Fluxo de Processamento
+### Processing Flow
 ```
-1. Usuário faz upload → S3
+1. User uploads → S3
 2. S3 Event → Lambda fileUploadedEvent
-3. Lambda envia mensagem → SQS
-4. Lambda processMeal processa mensagem
-5. Atualiza status da refeição
+3. Lambda sends message → SQS
+4. Lambda processMeal processes message
+5. AI processes file (audio/image)
+6. Updates meal status
 ```
 
 ### ProcessMeal (`src/queues/ProcessMeal.ts`)
 
-**Funcionalidade:** Processa refeições em background
+**Functionality:** Processes meals in the background with AI
 
-**Fluxo:**
-1. Busca refeição pelo fileKey
-2. Verifica se já foi processada
-3. Atualiza status para 'processing'
-4. Chama IA (placeholder)
-5. Atualiza com dados processados
-6. Em caso de erro, marca como 'failed'
+**Flow:**
+1. Fetches meal by fileKey
+2. Checks if already processed
+3. Updates status to 'processing'
+4. **Real AI:**
+   - **Audio:** Transcribes with Whisper → Analyzes with GPT-4
+   - **Image:** Analyzes with GPT-4 Vision
+5. Updates with processed data (name, icon, foods)
+6. On error, marks as 'failed'
 
-**Análise:**
-- ✅ **Resiliência:** Tratamento de erro adequado
-- ✅ **Idempotência:** Evita reprocessamento
-- ⚠️ **Melhoria:** Implementar IA real
-- ⚠️ **Melhoria:** Adicionar retry com backoff
-- ⚠️ **Melhoria:** Implementar dead letter queue
+**Analysis:**
+- ✅ **Real AI:** Full implementation with OpenAI
+- ✅ **Resilience:** Proper error handling
+- ✅ **Idempotency:** Prevents reprocessing
+- ✅ **Multimodal:** Supports audio and image
+- ✅ **Data structure:** `name` and `icon` fields added
+- ⚠️ **Improvement:** Add retry with backoff
+- ⚠️ **Improvement:** Implement dead letter queue
 
 ---
 
@@ -357,68 +424,106 @@ conflict(409), unauthorized(401)
 
 ### `serverless.yml`
 
-**Recursos AWS:**
+**AWS Resources:**
 - **S3 Bucket:** `foodiary-uploads-jstack-lab-giacomo`
 - **SQS Queue:** `foodiary-meals-queue-jstack-lab-giacomo`
 - **DLQ:** `foodiary-meals-dlq-jstack-lab-giacomo`
 
 **IAM Permissions:**
-- S3: PutObject
+- S3: PutObject, GetObject
 - SQS: SendMessage
 
-**Análise:**
-- ✅ **Segurança:** Permissões mínimas necessárias
-- ✅ **Organização:** Nomes descritivos
-- ✅ **Resiliência:** Dead letter queue configurada
-- ⚠️ **Melhoria:** Adicionar tags para organização
-- ⚠️ **Melhoria:** Configurar lifecycle do S3
+**Environment Variables:**
+- `DATABASE_URL`: PostgreSQL URL
+- `JWT_SECRET`: JWT secret
+- `UPLOADS_BUCKET_NAME`: S3 bucket name
+- `MEALS_QUEUE_URL`: SQS queue URL
+- `OPENAI_API_KEY`: OpenAI API key
+
+**Analysis:**
+- ✅ **Security:** Minimum required permissions
+- ✅ **Organization:** Descriptive names
+- ✅ **Resilience:** Dead letter queue configured
+- ✅ **Configuration:** Well-organized environment variables
+- ⚠️ **Improvement:** Add tags for organization
+- ⚠️ **Improvement:** Set S3 lifecycle
 
 ---
 
-## 📈 Pontos Fortes do Projeto
+## 📦 Dependencies
 
-1. **Arquitetura bem estruturada:** Separação clara de responsabilidades
-2. **Segurança:** JWT, bcrypt, validação com Zod
-3. **Escalabilidade:** Serverless + processamento assíncrono
-4. **Type Safety:** TypeScript em todo o projeto
-5. **Padrões consistentes:** Estrutura uniforme nas funções
-6. **Flexibilidade:** Suporte a áudio e imagem
-7. **Cálculos nutricionais:** Baseados em fórmulas científicas
+### Production
+- `@aws-sdk/client-s3`: S3 client
+- `@aws-sdk/client-sqs`: SQS client
+- `@aws-sdk/s3-request-presigner`: Presigned URLs
+- `@neondatabase/serverless`: PostgreSQL driver
+- `bcryptjs`: Password encryption
+- `drizzle-orm`: Database ORM
+- `jsonwebtoken`: JWT
+- `openai`: OpenAI client
+- `zod`: Data validation
 
----
-
-## 🔧 Melhorias Sugeridas
-
-### Prioridade Alta
-1. **Implementar IA real** para processamento de alimentos
-2. **Adicionar validação de entrada** mais robusta
-3. **Implementar logging** estruturado
-4. **Adicionar testes** unitários e de integração
-5. **Configurar monitoramento** (CloudWatch, X-Ray)
-
-### Prioridade Média
-1. **Implementar cache** para dados frequentemente acessados
-2. **Adicionar paginação** nas listagens
-3. **Implementar rate limiting**
-4. **Adicionar refresh tokens**
-5. **Configurar CI/CD** automatizado
-
-### Prioridade Baixa
-1. **Adicionar documentação** OpenAPI/Swagger
-2. **Implementar versionamento** de API
-3. **Adicionar métricas** de negócio
-4. **Otimizar queries** com índices
-5. **Implementar backup** automático
+### Development
+- `@types/aws-lambda`: Lambda types
+- `@types/jsonwebtoken`: JWT types
+- `@types/node`: Node.js types
+- `dotenv`: Environment variables
+- `drizzle-kit`: Drizzle tools
+- `serverless-offline`: Local development
+- `tsx`: TypeScript execution
+- `typescript`: TypeScript compiler
 
 ---
 
-## 🎯 Conclusão
+## 📈 Project Strengths
 
-O projeto **Foodiary API** demonstra uma arquitetura serverless bem estruturada com:
+1. **Real AI Implemented:** OpenAI for food processing
+2. **Well-structured architecture:** Clear separation of responsibilities
+3. **Security:** JWT, bcrypt, Zod validation
+4. **Scalability:** Serverless + async processing
+5. **Type safety:** TypeScript throughout the project
+6. **Consistent patterns:** Uniform function structure
+7. **Multimodal:** Supports audio and image
+8. **Nutritional calculations:** Based on scientific formulas
+9. **Async processing:** Full S3 → SQS → Lambda flow
+10. **Improved UX:** Meal names and icons
 
-- **Boas práticas** de desenvolvimento
-- **Segurança** adequada
-- **Escalabilidade** nativa
-- **Manutenibilidade** através de código limpo
+---
 
-A base está sólida para evolução e adição de novas funcionalidades. O foco atual deve ser na implementação da IA para processamento de alimentos e na adição de testes automatizados.
+## 🔧 Suggested Improvements
+
+### High Priority
+1. **Implement cache** for AI results
+2. **Add more robust input validation**
+3. **Implement structured logging**
+4. **Add unit and integration tests**
+5. **Set up monitoring** (CloudWatch, X-Ray)
+
+### Medium Priority
+1. **Implement retry** with exponential backoff
+2. **Add pagination** to listings
+3. **Implement rate limiting**
+4. **Add refresh tokens**
+5. **Set up automated CI/CD**
+
+### Low Priority
+1. **Add OpenAPI/Swagger documentation**
+2. **Implement API versioning**
+3. **Add business metrics**
+4. **Optimize queries** with indexes
+5. **Implement automatic backup**
+
+---
+
+## 🎯 Conclusion
+
+The **Foodiary API** project has evolved significantly and now features:
+
+- **Real AI:** Full implementation with OpenAI for food processing
+- **Multimodal processing:** Supports audio (Whisper) and image (GPT-4 Vision)
+- **Robust architecture:** Serverless with async processing
+- **Proper security:** JWT, bcrypt, Zod validation
+- **Improved UX:** Meal names and icons
+- **Clean code:** Well-structured TypeScript
+
+The application is **production-ready** with complete food processing features via AI. The current focus should be on implementing automated tests and monitoring to ensure production stability.
