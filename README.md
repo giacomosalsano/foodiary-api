@@ -20,6 +20,10 @@ Serverless API for logging, analyzing, and tracking meals using Artificial Intel
 - **Zod** (validation)
 - **bcryptjs** (encryption)
 
+<div align="center" style="display: inline_block"><br>
+  <img src="https://skillicons.dev/icons?i=ts,nodejs,postgres,aws,github,npm&perline=10" alt="icons" />
+</div>
+
 ## ⚡ How to Run Locally
 1. Clone the repository
 2. Install dependencies:

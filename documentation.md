@@ -19,6 +19,10 @@
 - **Encryption:** bcryptjs
 - **AI:** OpenAI (GPT-4 Vision + Whisper)
 
+<div align="center" style="display: inline_block"><br>
+  <img src="https://skillicons.dev/icons?i=ts,nodejs,postgres,aws,github,npm&perline=10" alt="icons" />
+</div>
+
 ### Data Flow
 ```
 1. User uploads → 2. S3 Event → 3. SQS → 4. AI Processing → 5. DB Update
