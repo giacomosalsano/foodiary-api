@@ -4,8 +4,6 @@
 
 **Foodiary API** is a serverless application built with AWS Lambda that allows users to log and manage their meals by uploading photos or audio. The application uses **real Artificial Intelligence** (OpenAI) for asynchronous food processing and automatic nutritional information calculation.
 
-**API URL:** `https://hcnruwnjwa.execute-api.us-east-1.amazonaws.com/`
-
 ---
 
 ## 🏗️ System Architecture
