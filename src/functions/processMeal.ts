@@ -1,12 +1,12 @@
 import { SQSEvent } from "aws-lambda";
-import { ProcessMealController } from "../queues/processMealController";
+import { ProcessMeal } from "../queues/processMeal";
 
 export async function handler(event: SQSEvent) {
   await Promise.all(
     event.Records.map(async record => {
       const body = JSON.parse(record.body);
 
-      await ProcessMealController.process(body);
+      await ProcessMeal.process(body);
     })
   )
 }

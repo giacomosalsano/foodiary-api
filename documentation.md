@@ -332,7 +332,7 @@ conflict(409), unauthorized(401)
 5. Atualiza status da refeição
 ```
 
-### ProcessMealController (`src/queues/processMealController.ts`)
+### ProcessMeal (`src/queues/ProcessMeal.ts`)
 
 **Funcionalidade:** Processa refeições em background
 
