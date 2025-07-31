@@ -22,6 +22,12 @@ export async function getMealDetailsFromText({
   createdAt,
   text,
 }: GetMealDetailsFromTextParams) {
+  console.log('getMealDetailsFromText STARTED');
+  console.log('getMealDetailsFromText', {
+    createdAt,
+    text,
+  });
+
   const response = await client.chat.completions.create({
     model: 'gpt-4.1-mini',
     messages: [
@@ -82,6 +88,11 @@ export async function getMealDetailsFromText({
   if (!json) {
     throw new Error('Failed to process meal.');
   }
+
+  console.log('getMealDetailsFromText ENDED');
+  console.log('getMealDetailsFromText', {
+    json,
+  });
 
   return JSON.parse(json);
 }

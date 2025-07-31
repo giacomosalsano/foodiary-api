@@ -1,6 +1,9 @@
 org: giacomodev
 service: foodiary-api
 
+custom:
+  uploadsBucketName: foodiary-uploads-giacomo
+
 plugins:
   - serverless-offline
 
@@ -11,7 +14,7 @@ provider:
   environment:
     DATABASE_URL: ${env:DATABASE_URL}
     JWT_SECRET: ${env:JWT_SECRET}
-    UPLOADS_BUCKET_NAME: !Ref UploadsBucket
+    UPLOADS_BUCKET_NAME: ${self:custom.uploadsBucketName} 
     MEALS_QUEUE_URL: !Ref MealsQueue
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
   iam:
@@ -21,13 +24,16 @@ provider:
           Action:
             - s3:PutObject
             - s3:GetObject
-          Resource: !Sub '${UploadsBucket.Arn}/*'
+            - s3:DeleteObject
+          Resource: !Sub 'arn:aws:s3:::${self:custom.uploadsBucketName}/*'
         - Effect: Allow
           Action:
             - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
           Resource: !GetAtt MealsQueue.Arn
 
-package: 
+package:
   individually: true
 
 resources:
@@ -35,19 +41,33 @@ resources:
     UploadsBucket:
       Type: AWS::S3::Bucket
       Properties:
-        BucketName: foodiary-uploads-jstack-lab-giacomo
+        BucketName: ${self:custom.uploadsBucketName}
+        NotificationConfiguration:
+          LambdaConfigurations:
+            - Event: 's3:ObjectCreated:*'
+              Function: !GetAtt FileUploadedEventLambdaFunction.Arn
+
+    S3InvokeLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt FileUploadedEventLambdaFunction.Arn
+        Action: 'lambda:InvokeFunction'
+        Principal: s3.amazonaws.com
+        SourceArn: !Sub 'arn:aws:s3:::${self:custom.uploadsBucketName}'
+
     MealsQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: foodiary-meals-queue-jstack-lab-giacomo
+        QueueName: foodiary-meals-queue-giacomo
         VisibilityTimeout: 60
         RedrivePolicy:
           deadLetterTargetArn: !GetAtt MealsDLQ.Arn
           maxReceiveCount: 2
+          
     MealsDLQ:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: foodiary-meals-dlq-jstack-lab-giacomo
+        QueueName: foodiary-meals-dlq-giacomo
 
 build:
   esbuild:
@@ -105,12 +125,6 @@ functions:
 
   fileUploadedEvent:
     handler: src/functions/fileUploadedEvent.handler
-    events:
-      - s3:
-          bucket: !Ref UploadsBucket
-          event: s3:ObjectCreated:*
-          existing: true
-          forceDeploy: true
 
   processMeal:
     handler: src/functions/processMeal.handler
@@ -118,4 +132,3 @@ functions:
       - sqs:
           arn: !GetAtt MealsQueue.Arn
           batchSize: 1
-

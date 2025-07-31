@@ -35,6 +35,8 @@ export class ProcessMeal {
         const audioFileBuffer = await this.downloadAudioFile(meal.inputFileKey);
         const transcription = await transcribeAudio(audioFileBuffer);
 
+        console.log('transcription in processMeal', transcription);
+
         const mealDetails = await getMealDetailsFromText({
           createdAt: new Date(),
           text: transcription,
@@ -79,7 +81,7 @@ export class ProcessMeal {
 
   private static async downloadAudioFile(fileKey: string) {
     const command = new GetObjectCommand({
-      Bucket: process.env.BUCKET_NAME,
+      Bucket: process.env.UPLOADS_BUCKET_NAME,
       Key: fileKey,
     });
 
@@ -99,7 +101,7 @@ export class ProcessMeal {
 
   private static async getImageURL(fileKey: string) {
     const command = new GetObjectCommand({
-      Bucket: process.env.BUCKET_NAME,
+      Bucket: process.env.UPLOADS_BUCKET_NAME,
       Key: fileKey,
     });
 
